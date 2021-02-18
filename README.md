@@ -17,7 +17,7 @@ This application allows a user to add expenses and deposits to their budget with
 
 ## Installation Instructions:
 
-This application is remotely deployed at https://morning-wave-37012.herokuapp.com . However, if you would like to clone it, you may do so at https://github.com/amiedawn/pwa-budget-tracker . This application uses MongoDB, Mongoose, Express.js, IndexedDB, a service worker, and a web manifest. Once dependencies have been installed, you may run the application in the terminal by typing “node start”. 
+This application is remotely deployed at https://desolate-plateau-65025.herokuapp.com/ . However, if you would like to clone it, you may do so at https://github.com/amiedawn/pwa-budget-tracker . This application uses MongoDB, Mongoose, Express.js, IndexedDB, a service worker, and a web manifest. Once dependencies have been installed, you may run the application in the terminal by typing “node start”. 
 
 ## Usage Information:
 
