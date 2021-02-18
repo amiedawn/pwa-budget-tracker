@@ -1,6 +1,7 @@
 const FILES_TO_CACHE = [
+  "/",
   "/index.html",
-  "/css/style.css",
+  "/css/styles.css",
   "/js/idb.js",
   "/js/index.js",
   "/icons/icon-72x72.png",
@@ -13,71 +14,69 @@ const FILES_TO_CACHE = [
   "/icons/icon-512x512.png"
 ];
 
-const STATIC_CACHE_NAME = 'static-cache-v1';
-const DYNAMIC_CACHE_NAME = "dynamic-cache-v1";
+const CACHE_NAME = "static-cache-v1";
+const DATA_CACHE_NAME = "data-cache-v1";
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches
-    .open(STATIC_CACHE_NAME)
-    .then(cache => cache.addAll(FILES_TO_CACHE))
-    .then(() => self.skipWaiting())
-    );  
+self.addEventListener("install", (evt) => {
+  evt.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(FILES_TO_CACHE);
+    })
+  );
+
+  self.skipWaiting();
 });
 
-self.addEventListener('activate', e => {
-  const currentCaches = [STATIC_CACHE_NAME, DYNAMIC_CACHE_NAME];
-  e.waitUntil(
-    caches
-    .keys()
-    .then(cacheNames =>
-        cacheNames.filter(cacheName => !currentCaches.includes(cacheName))
-      )
-      .then(cachesToDelete =>
-        Promise.all(
-          cachesToDelete.map(cacheToDelete => caches.delete(cacheToDelete))
-        )
-      )
-      .then(() => self.clients.claim())
-  );  
+self.addEventListener("activate", (evt) => {
+  // remove old caches
+  evt.waitUntil(
+    caches.keys().then((keyList) => {
+      return Promise.all(
+        keyList.map((key) => {
+          if (key !== CACHE_NAME && key !== DATA_CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    })
+  );
+
+  self.clients.claim();
 });
 
-self.addEventListener(`fetch`, (event) => {
-  if (
-    event.request.method !== `GET` ||
-    !event.request.url.startsWith(self.location.origin)
-  ) {
-    event.respondWith(fetch(event.request));
-    return;
-  }
+self.addEventListener("fetch", (evt) => {
+  // cache successful GET requests to the API
+  if (evt.request.url.includes("/api/") && evt.request.method === "GET") {
+    evt.respondWith(
+      caches
+        .open(DATA_CACHE_NAME)
+        .then((cache) => {
+          return fetch(evt.request)
+            .then((response) => {
+              // If the response was good, clone it and store it in the cache.
+              if (response.status === 200) {
+                cache.put(evt.request, response.clone());
+              }
 
-  if (event.request.url.includes(`/api/transaction`)) {
-    event.respondWith(
-      caches.open(DYNAMIC_CACHE_NAME).then((cache) =>
-        fetch(event.request)
-          .then((response) => {
-            cache.put(event.request, response.clone());
-            return response;
-          })
-          .catch(() => caches.match(event.request))
-      )
+              return response;
+            })
+            .catch(() => {
+              // Network request failed, try to get it from the cache.
+              return cache.match(evt.request);
+            });
+        })
+        .catch((err) => console.log(err))
     );
+
+    // stop execution of the fetch event callback
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return caches
-        .open(DYNAMIC_CACHE_NAME)
-        .then((cache) =>
-          fetch(event.request).then((response) =>
-            cache.put(event.request, response.clone()).then(() => response)
-          )
-        );
+  // if the request is not for the API, serve static assets using
+  // "offline-first" approach.
+  evt.respondWith(
+    caches.match(evt.request).then((response) => {
+      return response || fetch(evt.request);
     })
   );
 });
